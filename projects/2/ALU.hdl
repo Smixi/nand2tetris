@@ -41,5 +41,35 @@ CHIP ALU {
         ng;      // if (out < 0)  equals 1, else 0
 
     PARTS:
-    //// Replace this comment with your code.
+    //ZX
+    Mux16(a=x, b=false, sel=zx, out=zxOut);
+    //NX
+    Not16(in=zxOut, out=intermediateNx);
+    //NX is not prio to ZX
+    Mux16(a=zxOut, b=intermediateNx, sel=nx, out=nxOut);
+    //ZY
+    Mux16(a=y, b=false, sel=zy, out=zyOut);
+    //NY
+    Not16(in=zyOut, out=intermediateNy);
+    //NY is not prio to ZY
+    Mux16(a=zyOut, b=intermediateNy, sel=ny, out=nyOut);
+
+    //f
+    And16(a=nxOut, b=nyOut, out=nxAndnnY);
+    Add16(a=nxOut, b=nyOut, out=nxPlusnY);
+    Mux16(a=nxAndnnY, b=nxPlusnY, sel=f, out=fOut);
+    //no
+    Not16(in=fOut, out=nofOut);
+    
+    Mux16(a=fOut, b=nofOut, sel=no, out[0..7]=lastOutHalfDown, out[8..15]=lastOutHalfUp);
+    // Final output
+    Or16(a[0..7]=lastOutHalfDown, a[8..15]=lastOutHalfUp, b=false, out=out);
+
+    //ng
+    And16(a[0..7]=lastOutHalfDown, a[8..15]=lastOutHalfUp, b=true, out[15]=ng);
+    //zr
+    Or8Way(in=lastOutHalfDown, out=or0);
+    Or8Way(in=lastOutHalfUp, out=or1);
+    Or(a=or0, b=or1, out=nzr);
+    Not(in=nzr, out=zr);
 }
