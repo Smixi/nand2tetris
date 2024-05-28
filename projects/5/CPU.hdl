@@ -32,5 +32,53 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-	//// Replace this comment with your code.
+
+    //instruction:
+    //A Instruction
+    //0 vvv vvvv vvvv vvvv
+
+    // Destination register logic
+    And(a=instruction[5], b=instruction[15], out=aRegDest);
+    And(a=instruction[4], b=instruction[15], out=dRegDest);
+    And(a=instruction[3], b=instruction[15], out=writeM);
+
+    // Choose when we load data for A register
+    Not(in=instruction[15], out=isAInstruction);
+    Or(a=isAInstruction, b=aRegDest, out=aRegLoad);
+    Mux16(a[0..14]=instruction[0..14],a[15]=false, b=ALUOut, sel=aRegDest, out=aRegIn);
+    Register(in=aRegIn, load=aRegLoad, out=aRegOut, out[0..14]=addressM, out[0..14]=iAddressM);
+
+    And(a=instruction[12], b=instruction[15], out=mRegComp);
+    Mux16(a=aRegOut, b=inM, sel=mRegComp, out=ALUInY);
+
+    //C instruction
+    // 1  1  1  a  c1  c2  c3 c4 c5 c6 d1  d2  d3  j1 j2 j3
+    // 15 14 13 12 11  10  9  8  7  6  5A  4D  3M  2  1  0
+
+    // Choose when we load data for D register
+    Register(in=ALUOut, load=dRegDest, out=dRegOut, out=ALUInX);
+
+    // 0 = Zx & !XNx & Zy & !Ny & !no
+    // ... we see that it map to c instruction order ...
+
+    ALU(x=ALUInX, y=ALUInY, zx=instruction[11], nx=instruction[10], zy=instruction[9],
+        ny=instruction[8], f=instruction[7], no=instruction[6], out=ALUOut, zr=ALUZr, ng=ALUNg,
+        out=outM);
+
+    //Instruction decoding for Jump instruction
+    And(a=instruction[2], b=ALUNg, out=jumpNegativ);
+    And(a=instruction[1], b=ALUZr, out=jumpZero);
+    
+    //Positiv is non null and non negative
+    Not(in=ALUZr, out=nzr);
+    Not(in=ALUNg, out=nng);
+    And(a=nng, b=nzr, out=positive);
+    And(a=instruction[0], b=positive, out=jumpPositiv);
+
+    Or(a=jumpNegativ, b=jumpZero, out=partialJump);
+    Or(a=partialJump, b=jumpPositiv, out=jumpCond);
+    // Only jump on instruction 
+    And(a=jumpCond, b=instruction[15], out=jump);
+    Not(in=jump, out=noJump);
+    PC(in[15]=false, in[0..14]=iAddressM ,load=jump, inc=noJump, reset=reset, out[0..14]=pc);
 }
